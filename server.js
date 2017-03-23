@@ -1,159 +1,228 @@
-#!/bin/env node
-//  OpenShift sample Node application
 var express = require('express');
-var fs      = require('fs');
+var http = require('http');
+var https = require('https');
+var moment = require('moment-timezone');
+var app = express();
+
+moment.tz.setDefault('Europe/Paris');
+
+app.get('/', function (req, res) {
+	var stopId = req.query.stopId;
+	var route = req.query.route;
+
+//	console.log(stopId, route);
+ 	if(!stopId) return res.status(200).send("Lametric Grenoble");
+	if(!route) return res.status(200).send("Lametric Grenoble");
+
+	if(stopId.split(':')[0] == "GIN") return parseGinko(stopId, route, res);
+  if(stopId.split(':')[0] == "SEM") return parseTag(stopId, route, res);
+
+});
+
+var port  = process.env.OPENSHIFT_NODEJS_PORT || process.env.PORT || 6789;
+var ip = ip = process.env.OPENSHIFT_NODEJS_IP || "127.0.0.1";
+app.listen(port, ip);
+console.info('Ok started on ' + ip + ':' + port);
+
+parseTag = function(stopId, route, res) {
+  var url = 'http://data.metromobilite.fr/api/routers/default/index/clusters/' + stopId + '/stoptimes?route=' + route;
+	var line = route.split(':')[1];
+	var icon = getIcon(line);
+
+	http.get(url, function (response) {
+		var body = '';
+
+		response.on('data', function(chunk) {
+			body += chunk;
+		})
+
+		response.on('error', function(err) {
+			console.log(err);
+			return res.status(500).send("An error occured");
+		});
+
+		response.on('end', function () {
+			var data = JSON.parse(body);
+			if(!data || data.length == 0) {
+				return res.json({"frames": [{"text": "Service terminé", "icon": icon}, {"text": "...", "icon": icon},{"text": "Service terminé", "icon": icon}, {"text": "...", "icon": icon}]});
+			}
+
+			var times = {
+				1: [],
+				2: []
+			};
+
+			var dests = [];
+
+			for(var i = 0; i < data.length; i++) {
+				var dir = data[i].pattern.dir;
+
+				dests[dir] = data[i].pattern.desc;
+
+				for(var j = 0; j < data[i].times.length; j++) {
+					times[dir].push(data[i].times[j]);
+				}
+			}
 
 
-/**
- *  Define the sample application.
- */
-var SampleApp = function() {
+			for(var i = 1; i <= Object.keys(times).length; i++) {
+				times[i].sort(function(a, b) {
+					at = a.realtime ? a.realtimeArrival : a.scheduledArrival;
+					at += a.serviceDay;
+					bt = b.realtime ? b.realtimeArrival : b.scheduledArrival;
+					bt += b.serviceDay;
 
-    //  Scope.
-    var self = this;
+					if(at < bt) return -1;
+					if(at > bt) return 1;
+					return 0;
+				});
+			}
+//			console.log(times);
+			var dest1 = dests[1]//.split(' ')[1]//.split(' -')[0];
+			var dest2 = dests[2]//.split(' ')[1]//.split(' -')[0];
+			var next1 = times[1][0];
+			var next2 = times[2][0];
+			var second1 = times[1][1];
+			var second2 = times[2][1];
+			var nextTime1 = getTime(next1);
+			var nextTime2 = getTime(next2);
+			var secondTime1 = getTime(second1);
+			var secondTime2 = getTime(second2);
+			res.json({"frames": [{"text": dest1, "icon": icon}, {"text": nextTime1 + "  " +  secondTime1},{"text": dest2, "icon": icon}, {"text": nextTime2 + "  " + secondTime2}]});
+		})
+	});
+}
 
+parseGinko = function(stopId, routeId, res) {
+	var stop = stopId.split(':')[1];
+	var route = routeId.split(':')[1];
 
-    /*  ================================================================  */
-    /*  Helper functions.                                                 */
-    /*  ================================================================  */
+	var url = "https://www.ginkoopenapi.fr/TR/getTempsLieu.do?nom=" + stop;
+	//console.log(url);
+        https.get(url, function (response) {
+                var body = '';
 
-    /**
-     *  Set up server IP address and port # using env variables/defaults.
-     */
-    self.setupVariables = function() {
-        //  Set the environment variables we need.
-        self.ipaddress = process.env.OPENSHIFT_NODEJS_IP;
-        self.port      = process.env.OPENSHIFT_NODEJS_PORT || 8080;
+                response.on('data', function(chunk) {
+                        body += chunk;
+                })
 
-        if (typeof self.ipaddress === "undefined") {
-            //  Log errors on OpenShift but continue w/ 127.0.0.1 - this
-            //  allows us to run/test the app locally.
-            console.warn('No OPENSHIFT_NODEJS_IP var, using 127.0.0.1');
-            self.ipaddress = "127.0.0.1";
-        };
-    };
+                response.on('error', function(err) {
+                        console.log(err);
+                        return res.status(500).send("An error occured");
+                });
 
+                response.on('end', function () {
+                        var data = JSON.parse(body);
+			var times = {
+				aller: [],
+				retour: []
+			};
 
-    /**
-     *  Populate the cache.
-     */
-    self.populateCache = function() {
-        if (typeof self.zcache === "undefined") {
-            self.zcache = { 'index.html': '' };
-        }
+			for(var i = 0; i < data.objets.listeTemps.length; i++) {i
+				if(data.objets.listeTemps[i].idLigne != route) continue;
+				if(data.objets.listeTemps[i].sensAller) {
+					times.aller.push(data.objets.listeTemps[i]);
+				} else {
+					times.retour.push(data.objets.listeTemps[i]);
+				}
+			}
+			var icon = getIcon(route);
+			var next1 = times.aller[0];
+                        var next2 = times.retour[0];
+                        var second1 = times.aller[1];
+                        var second2 = times.retour[1];
 
-        //  Local cache for static content.
-        self.zcache['index.html'] = fs.readFileSync('./index.html');
-    };
-
-
-    /**
-     *  Retrieve entry (content) from cache.
-     *  @param {string} key  Key identifying content to retrieve from cache.
-     */
-    self.cache_get = function(key) { return self.zcache[key]; };
-
-
-    /**
-     *  terminator === the termination handler
-     *  Terminate server on receipt of the specified signal.
-     *  @param {string} sig  Signal to terminate on.
-     */
-    self.terminator = function(sig){
-        if (typeof sig === "string") {
-           console.log('%s: Received %s - terminating sample app ...',
-                       Date(Date.now()), sig);
-           process.exit(1);
-        }
-        console.log('%s: Node server stopped.', Date(Date.now()) );
-    };
-
-
-    /**
-     *  Setup termination handlers (for exit and a list of signals).
-     */
-    self.setupTerminationHandlers = function(){
-        //  Process on exit and signals.
-        process.on('exit', function() { self.terminator(); });
-
-        // Removed 'SIGPIPE' from the list - bugz 852598.
-        ['SIGHUP', 'SIGINT', 'SIGQUIT', 'SIGILL', 'SIGTRAP', 'SIGABRT',
-         'SIGBUS', 'SIGFPE', 'SIGUSR1', 'SIGSEGV', 'SIGUSR2', 'SIGTERM'
-        ].forEach(function(element, index, array) {
-            process.on(element, function() { self.terminator(element); });
-        });
-    };
+			if(!next1) next1 = next2;
+			if(!next2) next2 = next1;
 
 
-    /*  ================================================================  */
-    /*  App server functions (main app logic here).                       */
-    /*  ================================================================  */
+			if(!next1 && !next2) return res.json({"frames": [{"text": "Fin de service", "icon": icon}, {"text": "...", "icon": icon}, {"text": "Fin de service", "icon": icon}, {"text": "...", "icon": icon}]});
 
-    /**
-     *  Create the routing table entries + handlers for the application.
-     */
-    self.createRoutes = function() {
-        self.routes = { };
+			return res.json({"frames": [{"text": next1.destination, "icon": icon}, {"text": next1.temps},{"text": next2.destination, "icon": icon}, {"text": next2.temps}]});
 
-        self.routes['/asciimo'] = function(req, res) {
-            var link = "http://i.imgur.com/kmbjB.png";
-            res.send("<html><body><img src='" + link + "'></body></html>");
-        };
-
-        self.routes['/'] = function(req, res) {
-            res.setHeader('Content-Type', 'text/html');
-            res.send(self.cache_get('index.html') );
-        };
-    };
+		})
+	});
+}
 
 
-    /**
-     *  Initialize the server (express) and create the routes and register
-     *  the handlers.
-     */
-    self.initializeServer = function() {
-        self.createRoutes();
-        self.app = express.createServer();
+getIcon = function(line) {
+	var linesIcon = {
+		"A": "a4870",
+		"B": "a5182",
+		"C": "a4875",
+		"D": "a5186",
+		"E": "a5187",
+		"C1": "a4874",
+		"C2": "a5189",
+		"C3": "a5190",
+		"C4": "a4898",
+		"C5": "a4871",
+		"C6": "a5193",
+		"11": "a5194",
+		"12": "a5195",
+		"13": "a4873",
+		"16": "a5136",
+		"17": "a5200",
+		"19": "a5201",
+		"40": "a5285",
+		"41": "a5286",
+		"42": "a5287",
+		"43": "a5352",
+		"44": "a5353",
+		"45": "a5354",
+		"46": "a5356",
+		"47": "a5357",
+		"48": "a5358",
+		"49": "a5359",
+		"50": "a5360",
+		"51": "a5361",
+		"52": "a5362",
+		"53": "a5364",
+		"54": "a5365",
+		"55": "a5367",
+		"56": "a5368",
+		"60": "a5369",
+		"61": "a5370",
+		"62": "a5371",
+		"63": "a5372",
+		"64": "a5373",
+		"65": "a5374",
+		"66": "a5375",
+		"67": "a5376",
+		"68": "a5377",
+		"69": "a5378",
+		"1": "a5165",
+		"2": "a5166",
+		"3": "a5167",
+		"5": "a5169",
+		"6": "a5170",
+		"10": "a5171",
+		"11": "a5172",
+		"14": "a5173",
+		"15": "a5174",
+		"20": "a5175",
+		"21": "a5180",
+		"22": "a5177",
+		"23": "a5178",
+		"24": "a5179",
+	};
 
-        //  Add handlers for the app (from the routes).
-        for (var r in self.routes) {
-            self.app.get(r, self.routes[r]);
-        }
-    };
+	return linesIcon[line] || "i541";
+}
 
+getTime = function(timeObject) {
+	if(!timeObject) return "...";
+	var arrival = timeObject.realtime ? timeObject.realtimeArrival : timeObject.scheduledArrival;
+	arrival = arrival * 1000;
+	var baseTimestamp = timeObject.serviceDay;
+	baseTimestamp = baseTimestamp * 1000;
+	var now = moment();
 
-    /**
-     *  Initializes the sample application.
-     */
-    self.initialize = function() {
-        self.setupVariables();
-        self.populateCache();
-        self.setupTerminationHandlers();
-
-        // Create the express server and routes.
-        self.initializeServer();
-    };
-
-
-    /**
-     *  Start the server (starts up the sample application).
-     */
-    self.start = function() {
-        //  Start the app on the specific interface (and port).
-        self.app.listen(self.port, self.ipaddress, function() {
-            console.log('%s: Node server started on %s:%d ...',
-                        Date(Date.now() ), self.ipaddress, self.port);
-        });
-    };
-
-};   /*  Sample Application.  */
-
-
-
-/**
- *  main():  Main code.
- */
-var zapp = new SampleApp();
-zapp.initialize();
-zapp.start();
-
+	if(baseTimestamp + arrival - now < 1800000) {
+		if(baseTimestamp + arrival - now < 60000) {
+			return "0m";
+		}
+		return moment(baseTimestamp + arrival - now).format('m') + "m";
+	}
+	return moment(baseTimestamp + arrival).format('H:mm');
+	}
