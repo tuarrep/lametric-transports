@@ -20,9 +20,9 @@ app.get('/', function (req, res) {
 });
 
 var port  = process.env.OPENSHIFT_NODEJS_PORT || process.env.PORT || 6789;
-var ip = ip = process.env.OPENSHIFT_NODEJS_IP || "127.0.0.1";
-app.listen(port, ip);
-console.info('Ok started on ' + ip + ':' + port);
+//var ip = ip = process.env.OPENSHIFT_NODEJS_IP || "127.0.0.1";
+app.listen(port);
+console.info('Ok started on ' + port);
 
 parseTag = function(stopId, route, res) {
   var url = 'http://data.metromobilite.fr/api/routers/default/index/clusters/' + stopId + '/stoptimes?route=' + route;
