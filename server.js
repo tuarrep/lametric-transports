@@ -97,7 +97,7 @@ parseGinko = function(stopId, routeId, res) {
 	var stop = stopId.split(':')[1];
 	var route = routeId.split(':')[1];
 
-	var url = "https://www.ginkoopenapi.fr/TR/getTempsLieu.do?nom=" + stop;
+	var url = "https://api.ginko.voyage/TR/getTempsLieu.do?nom=" + stop;
 	//console.log(url);
         https.get(url, function (response) {
                 var body = '';
