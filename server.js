@@ -11,7 +11,13 @@ app.get('/', function (req, res) {
 	var route = req.query.route;
 
 //	console.log(stopId, route);
- 	if(!stopId) return res.status(200).send("Lametric Grenoble");
+ 	if(!stopId) return res.status(200).json({
+    		"frames": [
+        	{
+            		"text": "",
+            		"icon": null
+        	}
+    		]});
 	if(!route) return res.status(200).send("Lametric Grenoble");
 
 	if(stopId.split(':')[0] == "GIN") return parseGinko(stopId, route, res);
