@@ -31,11 +31,11 @@ app.listen(port);
 console.info('Ok started on ' + port);
 
 parseTag = function(stopId, route, res) {
-  var url = 'http://data.metromobilite.fr/api/routers/default/index/clusters/' + stopId + '/stoptimes?route=' + route;
+  var url = 'https://data.metromobilite.fr/api/routers/default/index/clusters/' + stopId + '/stoptimes?route=' + route;
 	var line = route.split(':')[1];
 	var icon = getIcon(line);
 
-	http.get(url, function (response) {
+	https.get(url, function (response) {
 		var body = '';
 
 		response.on('data', function(chunk) {
