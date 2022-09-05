@@ -31,7 +31,7 @@ app.listen(port);
 console.info('Ok started on ' + port);
 
 parseTag = function(stopId, route, res) {
-  var url = 'https://data.metromobilite.fr/api/routers/default/index/clusters/' + stopId + '/stoptimes?route=' + route;
+  var url = 'https://data.mobilites-m.fr/api/routers/default/index/clusters/' + stopId + '/stoptimes?route=' + route;
 	var line = route.split(':')[1];
 	var icon = getIcon(line);
 
