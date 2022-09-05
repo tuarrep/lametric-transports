@@ -112,6 +112,8 @@ parseGinko = function (stopId, routeId, res) {
   var stop = stopId.split(':')[1];
   var route = routeId.split(':')[1];
 
+  var icon = getIcon(route);
+
   var url = "https://api.ginko.voyage/TR/getTempsLieu.do?nom=" + stop;
   //console.log(url);
   https.get(url, function (response) {
@@ -148,7 +150,7 @@ parseGinko = function (stopId, routeId, res) {
           times.retour.push(data.objets.listeTemps[i]);
         }
       }
-      var icon = getIcon(route);
+
       var next1 = times.aller[0];
       var next2 = times.retour[0];
       var second1 = times.aller[1];
