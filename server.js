@@ -128,6 +128,13 @@ parseGinko = function (stopId, routeId, res) {
 
     response.on('end', function () {
       var data = JSON.parse(body);
+
+      if(!data.ok) return res.json({
+        "frames": [{"text": "Fin de service", "icon": icon}, {
+          "text": "...", "icon": icon
+        }, {"text": "Fin de service", "icon": icon}, {"text": "...", "icon": icon}]
+      });
+
       var times = {
         aller: [], retour: []
       };
