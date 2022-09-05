@@ -33,7 +33,11 @@ parseTag = function (stopId, route, res) {
   var line = route.split(':')[1];
   var icon = getIcon(line);
 
-	https.get(url, function (response) {
+  https.get(url, {
+    headers: {
+      origin: 'https://www.mobilites-m.fr'
+    }
+  }, function (response) {
     var body = '';
 
     response.on('data', function (chunk) {
