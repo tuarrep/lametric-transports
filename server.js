@@ -114,7 +114,7 @@ parseGinko = function (stopId, routeId, res) {
 
   var icon = getIcon(route);
 
-  var url = "https://api.ginko.voyage/TR/getTempsLieu.do?nom=" + stop;
+  var url = "https://api.ginko.voyage/TR/getTempsLieu.do?nom=" + stop + "&apiKey=" + process.env.BESANCON_API_KEY;
   //console.log(url);
   https.get(url, function (response) {
     var body = '';
